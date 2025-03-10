@@ -1,14 +1,22 @@
-from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, File, UploadFile, Form, APIRouter, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from typing import Optional
-from fpdf import FPDF
 import io
 import os
+import pickle
+import pandas as pd
 
+# Import from our modules
+from models import DiagnosisRequest
+from sensor_service import get_sensor_data
+from image_service import analyze_prawn_image
+from report_service import create_pdf_report
+
+# Initialize FastAPI app
 app = FastAPI()
 
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,108 +25,72 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class DiagnosisRequest(BaseModel):
-    q1: bool
-    q2: bool
-    q3: bool
-    q4: bool
-    q5: bool
-    q6: bool
-    q7: bool
-    q8: bool
-    q9: bool
-    q10: bool
+# Load trained model and label encoder for prediction
+model, label_encoder = pickle.load(open("prawn_model.pkl", "rb"))
 
-def get_iot_sensor_data():
-    return {
-        "pH": 8.1,
-        "tds": 1200,
-        "temperature": 28.5,
-    }
+# Prediction router
+predict_router = APIRouter()
 
-def analyze_prawn_image(image_path: str):
-    return {
-        "classification": "Prawn looks healthy",
-        "confidence": 0.92
-    }
+@predict_router.post("/predict")
+async def predict(
+    no_of_prawns: float = Form(...),
+    age: float = Form(...),
+    food: float = Form(...),
+    season: str = Form(...)
+):
+    try:
+        # Encode season
+        season_encoded = label_encoder.transform([season])[0]
 
-def create_pdf_report(
-    diagnosis_data: DiagnosisRequest,
-    sensor_data: dict,
-    ml_result: Optional[dict] = None
-) -> bytes:
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=14)
-    pdf.cell(200, 10, txt="Prawn Diagnosis Report", ln=True, align="C")
-    pdf.ln(5)
-    pdf.set_font("Arial", size=12, style="B")
-    pdf.cell(200, 10, txt="User Responses:", ln=True)
-    pdf.set_font("Arial", size=12)
-    answers_dict = diagnosis_data.dict()
-    question_texts = [
-        "1) Is the growth rate good?",
-        "2) Is the food intake good?",
-        "3) Are the weather conditions good?",
-        "4) Is the pond affected by whitegutt previously?",
-        "5) Is the plankton growth more or optimal?",
-        "6) Are minerals provided 3-4 times every month?",
-        "7) Is the estimated count matched with manual count?",
-        "8) Are nearby ponds more affected by viruses?",
-        "9) Are prawns losing shell at the correct time?",
-        "10) Any shell loose cases in pond?",
-    ]
-    for idx, (key, value) in enumerate(answers_dict.items()):
-        answer_str = "Yes" if value else "No"
-        pdf.cell(200, 8, txt=f"{question_texts[idx]} => {answer_str}", ln=True)
-    pdf.ln(5)
-    pdf.set_font("Arial", size=12, style="B")
-    pdf.cell(200, 10, txt="IoT Sensor Data:", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 8, txt=f"pH: {sensor_data['pH']}", ln=True)
-    pdf.cell(200, 8, txt=f"TDS: {sensor_data['tds']}", ln=True)
-    pdf.cell(200, 8, txt=f"Temperature: {sensor_data['temperature']}°C", ln=True)
-    pdf.ln(5)
-    if ml_result:
-        pdf.set_font("Arial", size=12, style="B")
-        pdf.cell(200, 10, txt="ML Image Analysis:", ln=True)
-        pdf.set_font("Arial", size=12)
-        pdf.cell(200, 8, txt=f"Classification: {ml_result['classification']}", ln=True)
-        pdf.cell(200, 8, txt=f"Confidence: {ml_result['confidence'] * 100:.2f}%", ln=True)
-        pdf.ln(5)
-    pdf.set_font("Arial", size=12, style="B")
-    pdf.cell(200, 10, txt="Diagnosis / Recommendation:", ln=True)
-    pdf.set_font("Arial", size=12)
-    recommendation_text = generate_diagnosis_text(diagnosis_data, sensor_data, ml_result)
-    pdf.multi_cell(0, 8, txt=recommendation_text)
-    pdf_bytes = pdf.output(dest="S").encode("latin-1")
-    return pdf_bytes
+        # Create feature array
+        features = pd.DataFrame([[no_of_prawns, age, food, season_encoded]],
+                                columns=['No_of_Prawns', 'Age_of_Pond', 'Food_Intake', 'Season'])
 
-def generate_diagnosis_text(
-    diagnosis_data: DiagnosisRequest,
-    sensor_data: dict,
-    ml_result: Optional[dict] = None
-) -> str:
-    score = 0
-    for answer_value in diagnosis_data.dict().values():
-        if answer_value:
-            score += 1
-    if sensor_data["pH"] < 7.0 or sensor_data["pH"] > 9.0:
-        score -= 1
-    ml_comment = ""
-    if ml_result:
-        ml_comment = f"Image suggests: {ml_result['classification']} (Conf. {ml_result['confidence']:.2f})."
-    if score >= 7:
-        diagnosis = (
-            "Overall conditions appear to be good. "
-            "Continue monitoring feeding and water parameters regularly. "
+        # Predict
+        prediction = model.predict(features)[0]
+        return {"prediction": f"{prediction:.2f}"}  # Format to 2 decimal places
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Include the prediction router
+app.include_router(predict_router)
+
+@app.get("/")
+def home():
+    return {"message": "Prawn Diagnosis API is Running"}
+
+@app.get("/read_sensor")
+def read_sensor():
+    return get_sensor_data()
+
+@app.post("/diagnose/image")
+async def diagnose_image(
+    file: UploadFile = File(...),
+    confidence: float = Form(40),
+    overlap: float = Form(30)
+):
+    """
+    Analyze uploaded image with Roboflow model
+    """
+    temp_file = f"temp_{file.filename}"
+    try:
+        # Save uploaded file temporarily
+        with open(temp_file, "wb") as f:
+            f.write(await file.read())
+        
+        # Process with analyze_prawn_image function
+        result = analyze_prawn_image(temp_file)
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"An error occurred: {str(e)}"}
         )
-    else:
-        diagnosis = (
-            "Some parameters may need attention. Verify feeding, check for possible disease signs, "
-            "and ensure water quality is within proper ranges. "
-        )
-    return f"{ml_comment}\n\n{diagnosis}"
+    finally:
+        # Clean up the temp file
+        if os.path.exists(temp_file):
+            os.unlink(temp_file)
 
 @app.post("/diagnosis", response_class=StreamingResponse)
 async def diagnose(
@@ -134,21 +106,43 @@ async def diagnose(
     q10: bool = Form(...),
     prawn_image: Optional[UploadFile] = File(None)
 ):
+    """
+    Generate full diagnosis report based on questionnaire, IoT data, and optional image
+    """
     diagnosis_data = DiagnosisRequest(
         q1=q1, q2=q2, q3=q3, q4=q4, q5=q5,
         q6=q6, q7=q7, q8=q8, q9=q9, q10=q10
     )
+    
+    # Get IoT sensor data
+    sensor_data = get_sensor_data()
+    
+    # Process image with Roboflow if provided
     ml_result = None
-    temp_path = None
-    if prawn_image is not None:
-        temp_path = f"temp_{prawn_image.filename}"
-        with open(temp_path, "wb") as f:
-            f.write(await prawn_image.read())
-        ml_result = analyze_prawn_image(temp_path)
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-    sensor_data = get_iot_sensor_data()
+    if prawn_image:
+        try:
+            # Create temp file for the image
+            temp_path = f"temp_{prawn_image.filename}"
+            contents = await prawn_image.read()
+            
+            with open(temp_path, "wb") as f:
+                f.write(contents)
+            
+            # Use the Roboflow model to analyze the image
+            ml_result = analyze_prawn_image(temp_path)
+            
+            # Cleanup temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                
+        except Exception as e:
+            print(f"Error processing image: {str(e)}")
+            # Continue with the diagnosis even if image processing fails
+    
+    # Generate PDF report with all data
     pdf_bytes = create_pdf_report(diagnosis_data, sensor_data, ml_result)
+    
+    # Return PDF report for download
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -156,3 +150,7 @@ async def diagnose(
             "Content-Disposition": "attachment; filename=diagnosis_report.pdf"
         }
     )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

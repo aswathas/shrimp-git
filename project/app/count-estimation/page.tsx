@@ -1,63 +1,63 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from "react"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Calculator } from "lucide-react";
+} from "@/components/ui/select"
+import { Calculator } from "lucide-react"
 
 export default function CountEstimationPage() {
-  const [pondAge, setPondAge] = useState("");
-  const [foodIntake, setFoodIntake] = useState("");
-  const [season, setSeason] = useState("");
-  const [estimatedCount, setEstimatedCount] = useState<number | null>(null);
+  const [pondAge, setPondAge] = useState("")
+  const [foodIntake, setFoodIntake] = useState("")
+  const [season, setSeason] = useState("")
+  const [estimatedCount, setEstimatedCount] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const calculateCount = () => {
-    // This is a simplified estimation model
-    // In a real application, this would be based on more complex calculations or ML models
-    const age = parseFloat(pondAge);
-    const food = parseFloat(foodIntake);
-
-    let seasonMultiplier = 1;
-    switch (season) {
-      case "summer":
-        seasonMultiplier = 1.2;
-        break;
-      case "winter":
-        seasonMultiplier = 0.8;
-        break;
-      case "rainy":
-        seasonMultiplier = 1;
-        break;
+  const calculateCount = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch("http://localhost:8000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          Age_of_Pond: pondAge,
+          Food_Intake: foodIntake,
+          Season: season,
+        }),
+      })
+      const data = await response.json()
+      if (data.prediction !== undefined) {
+        setEstimatedCount(data.prediction)
+      } else if (data.error) {
+        console.error("Error:", data.error)
+      }
+    } catch (error) {
+      console.error("Fetch error:", error)
+    } finally {
+      setLoading(false)
     }
-
-    // Basic formula: (base count * age factor * food factor * season multiplier)
-    const baseCount = 30; // Average base count
-    const ageFactor = Math.max(0.5, 1 - age / 150); // Age impact
-    const foodFactor = food / 1000; // Food intake impact
-
-    const count = baseCount * ageFactor * foodFactor * seasonMultiplier;
-    setEstimatedCount(parseFloat(count.toFixed(2)));
-  };
+  }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Removed Header component */}
       <div className="flex">
+       
         <main className="flex-1 p-8">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold">Prawn Count Estimation</h1>
-            <Button className="gap-2" onClick={calculateCount}>
+            <Button className="gap-2" onClick={calculateCount} disabled={loading}>
               <Calculator className="h-4 w-4" />
-              Calculate Count
+              {loading ? "Calculating..." : "Calculate Count"}
             </Button>
           </div>
 
@@ -69,18 +69,18 @@ export default function CountEstimationPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Age of Pond (days)</Label>
-                  <Input
-                    type="number"
-                    placeholder="Enter pond age"
+                  <Input 
+                    type="number" 
+                    placeholder="Enter pond age" 
                     value={pondAge}
                     onChange={(e) => setPondAge(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Food Intake per Day (per 1 lakh prawns)</Label>
-                  <Input
-                    type="number"
-                    placeholder="Enter food intake"
+                  <Input 
+                    type="number" 
+                    placeholder="Enter food intake" 
                     value={foodIntake}
                     onChange={(e) => setFoodIntake(e.target.value)}
                   />
@@ -92,9 +92,9 @@ export default function CountEstimationPage() {
                       <SelectValue placeholder="Select season" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="summer">Summer</SelectItem>
-                      <SelectItem value="winter">Winter</SelectItem>
-                      <SelectItem value="rainy">Rainy</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                      <SelectItem value="Winter">Winter</SelectItem>
+                      <SelectItem value="Rainy">Rainy</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -135,24 +135,22 @@ export default function CountEstimationPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Age Impact</h3>
                   <p className="text-sm text-muted-foreground">
-                    Younger ponds typically have higher counts per KG as prawns
-                    are smaller. Count decreases as prawns grow larger with age.
+                    Younger ponds typically have higher counts per KG as prawns are smaller.
+                    Count decreases as prawns grow larger with age.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2">Food Intake</h3>
                   <p className="text-sm text-muted-foreground">
-                    Higher food intake generally indicates larger prawns,
-                    resulting in lower count per KG. Adjusted for the standard
-                    base of 1 lakh prawns.
+                    Higher food intake generally indicates larger prawns, resulting in lower count per KG.
+                    Adjusted for the standard base of 1 lakh prawns.
                   </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2">Seasonal Variation</h3>
                   <p className="text-sm text-muted-foreground">
-                    Growth rates vary by season: faster in summer, slower in
-                    winter, and moderate in rainy season, affecting the count
-                    per KG.
+                    Growth rates vary by season: faster in summer, slower in winter, and moderate in rainy season,
+                    affecting the count per KG.
                   </p>
                 </div>
               </div>
@@ -161,5 +159,5 @@ export default function CountEstimationPage() {
         </main>
       </div>
     </div>
-  );
+  )
 }
