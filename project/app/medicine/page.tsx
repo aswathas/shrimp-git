@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,35 @@ export default function MedicinePage() {
     }
   };
 
+interface SensorData {
+  pH: number;
+  tds: number;
+  temperature: number;
+}
+
+const [sensorData, setSensorData] = useState<SensorData | null>(null);
+
+
+  useEffect(() => {
+    const fetchSensorData = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/read_sensor");
+        if (response.ok) {
+          const data = await response.json();
+          setSensorData(data);
+        } else {
+          console.error("Error fetching sensor data:", await response.text());
+        }
+      } catch (error) {
+        console.error("Error fetching sensor data:", error);
+      }
+    };
+
+    fetchSensorData();
+  }, []);
+
   const handleSubmit = async (e: FormEvent) => {
+
     e.preventDefault();
 
     // Prepare FormData
@@ -74,6 +103,26 @@ export default function MedicinePage() {
     <div className="min-h-screen bg-background p-8">
       <h1 className="text-3xl font-bold mb-4">Medicine Management</h1>
       <div className="grid gap-8 md:grid-cols-2">
+        {sensorData && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Sensor Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {sensorData ? (
+                <>
+                  <p>pH: {sensorData.pH}</p>
+                  <p>TDS: {sensorData.tds}</p>
+                  <p>Temperature: {sensorData.temperature}°C</p>
+                </>
+              ) : (
+                <p>Loading sensor data...</p>
+              )}
+
+            </CardContent>
+          </Card>
+        )}
+
         {/* Diagnosis Form Card */}
         <Card>
           <CardHeader>

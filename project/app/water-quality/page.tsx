@@ -1,8 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+
 import {
   LineChart,
   Line,
@@ -14,16 +17,41 @@ import {
 } from "recharts";
 import { Droplet, ThermometerSun, Wind, AlertCircle } from "lucide-react";
 
-const waterQualityData = [
-  { time: "00:00", ph: 7.2, temperature: 26, oxygen: 6.5, salinity: 15 },
-  { time: "04:00", ph: 7.1, temperature: 25, oxygen: 6.2, salinity: 14 },
-  { time: "08:00", ph: 7.3, temperature: 27, oxygen: 6.8, salinity: 15 },
-  { time: "12:00", ph: 7.4, temperature: 28, oxygen: 7.0, salinity: 16 },
-  { time: "16:00", ph: 7.2, temperature: 27, oxygen: 6.7, salinity: 15 },
-  { time: "20:00", ph: 7.1, temperature: 26, oxygen: 6.4, salinity: 14 },
-];
-
 export default function WaterQualityPage() {
+const [waterQualityData, setWaterQualityData] = useState<{ time: string; ph: number; temperature: number; oxygen: number; salinity: number; tds: number; }[]>([]);
+
+
+  useEffect(() => {
+    const fetchWaterQualityData = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/read_sensor");
+        if (response.ok) {
+          const data = await response.json();
+          setWaterQualityData((prevData) => [
+            ...prevData,
+            {
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              ph: data.pH,
+              temperature: data.temperature,
+              oxygen: data.oxygen,
+              salinity: data.salinity,
+              tds: data.tds, // Added TDS to the response
+
+            },
+          ]);
+        } else {
+          console.error("Error fetching sensor data:", await response.text());
+        }
+      } catch (error) {
+        console.error("Error fetching sensor data:", error);
+      }
+    };
+
+    fetchWaterQualityData();
+    const interval = setInterval(fetchWaterQualityData, 60000); // Fetch every minute
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="flex">
@@ -44,7 +72,7 @@ export default function WaterQualityPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold">7.2</div>
+                  <div className="text-2xl font-bold">{waterQualityData.length > 0 ? waterQualityData[waterQualityData.length - 1].ph.toFixed(1) : 'Loading...'}</div>
                   <Badge>Normal</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -55,14 +83,12 @@ export default function WaterQualityPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Temperature
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Temperature</CardTitle>
                 <ThermometerSun className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold">26.5°C</div>
+                  <div className="text-2xl font-bold">{waterQualityData.length > 0 ? waterQualityData[waterQualityData.length - 1].temperature.toFixed(1) + '°C' : 'Loading...'}</div>
                   <Badge>Normal</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -73,14 +99,12 @@ export default function WaterQualityPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Dissolved Oxygen
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Dissolved Oxygen</CardTitle>
                 <Wind className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold">6.8 mg/L</div>
+                  <div className="text-2xl font-bold">{waterQualityData.length > 0 ? (typeof waterQualityData[waterQualityData.length - 1].oxygen === 'number' ? waterQualityData[waterQualityData.length - 1].oxygen.toFixed(1) : 'N/A') + ' mg/L' : 'Loading...'}</div>
                   <Badge>Normal</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -96,7 +120,8 @@ export default function WaterQualityPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold">15 ppt</div>
+                  <div className="text-2xl font-bold">{waterQualityData.length > 0 ? (typeof waterQualityData[waterQualityData.length - 1].salinity === 'number' ? waterQualityData[waterQualityData.length - 1].salinity.toFixed(1) : 'N/A') + ' ppt' : 'Loading...'} | TDS: {waterQualityData.length > 0 ? (typeof waterQualityData[waterQualityData.length - 1].tds === 'number' ? waterQualityData[waterQualityData.length - 1].tds.toFixed(1) : 'N/A') + ' ppm' : 'Loading...'}</div>
+
                   <Badge>Normal</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">

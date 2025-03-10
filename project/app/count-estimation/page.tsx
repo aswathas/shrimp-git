@@ -17,6 +17,7 @@ import { Calculator } from "lucide-react"
 
 export default function CountEstimationPage() {
   const [pondAge, setPondAge] = useState("")
+  const [noOfPrawns, setNoOfPrawns] = useState("")
   const [foodIntake, setFoodIntake] = useState("")
   const [season, setSeason] = useState("")
   const [estimatedCount, setEstimatedCount] = useState<number | null>(null)
@@ -29,9 +30,10 @@ export default function CountEstimationPage() {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          Age_of_Pond: pondAge,
-          Food_Intake: foodIntake,
-          Season: season,
+          no_of_prawns: noOfPrawns,
+          age: pondAge,
+          food: foodIntake,
+          season: season,
         }),
       })
       const data = await response.json()
@@ -49,9 +51,7 @@ export default function CountEstimationPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Removed Header component */}
       <div className="flex">
-       
         <main className="flex-1 p-8">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold">Prawn Count Estimation</h1>
@@ -67,6 +67,15 @@ export default function CountEstimationPage() {
                 <CardTitle>Input Parameters</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Number of Prawns</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="Enter number of prawns" 
+                    value={noOfPrawns}
+                    onChange={(e) => setNoOfPrawns(e.target.value)}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Age of Pond (days)</Label>
                   <Input 
@@ -161,3 +170,4 @@ export default function CountEstimationPage() {
     </div>
   )
 }
+
