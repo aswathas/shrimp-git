@@ -1,3 +1,9 @@
 pydantic
 fastapi
 pillow
+roboflow
+uvicorn
+python-dotenv
+python-multipart
+fpdf2
+google-generativeai
