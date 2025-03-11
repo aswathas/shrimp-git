@@ -6,27 +6,17 @@ import io
 import os
 import pickle
 import pandas as pd
+import uvicorn
 
 # Import from our modules
 from models import DiagnosisRequest
 from sensor_service import get_sensor_data
 from image_service import analyze_prawn_image
 from report_service import create_pdf_report
+model, label_encoder = pickle.load(open("prawn_model.pkl", "rb"))
 
 # Initialize FastAPI app
 app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Load trained model and label encoder for prediction
-model, label_encoder = pickle.load(open("prawn_model.pkl", "rb"))
 
 # Prediction router
 predict_router = APIRouter()
@@ -52,8 +42,17 @@ async def predict(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Include the prediction router
 app.include_router(predict_router)
+
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def home():
@@ -62,6 +61,8 @@ def home():
 @app.get("/read_sensor")
 def read_sensor():
     return get_sensor_data()
+
+
 
 @app.post("/diagnose/image")
 async def diagnose_image(
@@ -107,7 +108,8 @@ async def diagnose(
     prawn_image: Optional[UploadFile] = File(None)
 ):
     """
-    Generate full diagnosis report based on questionnaire, IoT data, and optional image
+    Generate full diagnosis report based on questionnaire, IoT data, image analysis,
+    and AI-powered recommendations
     """
     diagnosis_data = DiagnosisRequest(
         q1=q1, q2=q2, q3=q3, q4=q4, q5=q5,
@@ -139,8 +141,8 @@ async def diagnose(
             print(f"Error processing image: {str(e)}")
             # Continue with the diagnosis even if image processing fails
     
-    # Generate PDF report with all data
-    pdf_bytes = create_pdf_report(diagnosis_data, sensor_data, ml_result)
+    # Generate PDF report with all data including Gemini AI analysis
+    pdf_bytes = await create_pdf_report(diagnosis_data, sensor_data, ml_result)
     
     # Return PDF report for download
     return StreamingResponse(
@@ -152,5 +154,4 @@ async def diagnose(
     )
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

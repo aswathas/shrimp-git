@@ -4,7 +4,7 @@ import numpy as np
 from typing import Dict, Any
 
 # Initialize Roboflow model
-rf = Roboflow(api_key="zy1lJUUkKDHmUs8MfPDA")
+rf = Roboflow(api_key="bc8vO1NdxZLVYHVEWBun")
 project = rf.workspace().project("shrimp-disease-detection")
 model = project.version(3).model
 
