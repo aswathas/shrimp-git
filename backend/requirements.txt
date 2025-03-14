@@ -10,5 +10,6 @@ google-generativeai
 supervision
 pandas 
 serial
+pyserial
 scikit-learn
 
