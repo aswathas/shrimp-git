@@ -2,8 +2,19 @@ from roboflow import Roboflow
 import supervision as sv
 import cv2
 import numpy as np
+import os
+from dotenv import load_dotenv
 
-rf = Roboflow(api_key="zy1lJUUkKDHmUs8MfPDA")
+load_dotenv()
+
+_ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY_COUNT", "")
+if not _ROBOFLOW_API_KEY:
+    raise RuntimeError(
+        "ROBOFLOW_API_KEY_COUNT is not set. Add it to backend/.env "
+        "(see .env.example) with a Roboflow API key for the counting model."
+    )
+
+rf = Roboflow(api_key=_ROBOFLOW_API_KEY)
 project = rf.workspace().project("shrimp-disease-detection")
 model = project.version(3).model
 

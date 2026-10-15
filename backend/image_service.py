@@ -1,10 +1,21 @@
 from roboflow import Roboflow
 import cv2
 import numpy as np
+import os
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize Roboflow model
-rf = Roboflow(api_key="bc8vO1NdxZLVYHVEWBun")
+_ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY_DETECT", "")
+if not _ROBOFLOW_API_KEY:
+    raise RuntimeError(
+        "ROBOFLOW_API_KEY_DETECT is not set. Add it to backend/.env "
+        "(see .env.example) with a Roboflow API key for the disease-detection project."
+    )
+
+rf = Roboflow(api_key=_ROBOFLOW_API_KEY)
 project = rf.workspace().project("shrimp-disease-detection")
 model = project.version(3).model
 

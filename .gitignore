@@ -44,3 +44,5 @@ coverage/
 # Project-specific files
 instructions.md
 .qodo
+# Local secrets (real .env lives in backend/)
+backend/.env
