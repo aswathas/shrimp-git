@@ -92,7 +92,16 @@ The `confidence` and `overlap` form fields on `/diagnose/image` are accepted but
 
 ## Known gaps
 
-- **`components/ui/` is missing.** Every page imports shadcn primitives from `@/components/ui/*`, but that directory is not in the repo — `npm run dev` will fail on the missing imports until the shadcn components are generated or restored.
+- **Known issues, as of the last check:**
+  - `next@13.5.11` carries one critical advisory. The vulnerable range extends past
+    13.5.11, so clearing it needs a **major** upgrade to Next 14/15 on a Next 13
+    app. Deliberately not forced — it is a breaking change with migration work, not
+    a patch. `npm audit fix --force` will do it if you accept that trade.
+  - 11 high advisories remain, all build-time tooling (eslint, tailwind, chokidar,
+    the glob family, postcss). They sit in `dependencies` rather than
+    `devDependencies`, so npm counts them as shipped when they are not. Moving them
+    is a small follow-up that makes the exposure honest.
+  - `npm audit` on the frontend went 27 → 14 advisories after the recent bumps.
 - **Roboflow API keys are hardcoded** in `backend/image_service.py` and `backend/count.py`. Gemini already reads its key from the environment; these two should follow.
 - **The serial port is hardcoded** to `COM18` at 115200 baud in `sensor_service.py`.
 - `backend.zip` is a checked-in duplicate of the backend tree.
