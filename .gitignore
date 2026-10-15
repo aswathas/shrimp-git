@@ -46,3 +46,6 @@ instructions.md
 .qodo
 # Local secrets (real .env lives in backend/)
 backend/.env
+
+# Stale archives can contain committed secrets that greps cannot see.
+backend.zip
